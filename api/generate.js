@@ -1,5 +1,5 @@
-const OpenAI = require("openai");
-const { supabase } = require("./_lib/supabase.js");
+import OpenAI from "openai";
+import { supabase } from "./_lib/supabase.js";
 
 const MAX_ATTEMPTS = 3;
 const MAX_PROMPT_LENGTH = 4000;
@@ -18,7 +18,7 @@ function sanitizePrompt(raw) {
   return cleaned;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -141,4 +141,4 @@ module.exports = async function handler(req, res) {
       .status(500)
       .json({ error: "An unexpected error occurred. Please try again." });
   }
-};
+}

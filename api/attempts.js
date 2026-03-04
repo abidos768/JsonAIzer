@@ -1,6 +1,6 @@
-const { supabase } = require("./_lib/supabase.js");
+import { supabase } from "./_lib/supabase.js";
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -36,4 +36,4 @@ module.exports = async function handler(req, res) {
     console.error("Unexpected error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
-};
+}
