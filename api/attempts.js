@@ -15,11 +15,7 @@ export default async function handler(req, res) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    return res.status(500).json({
-      error: "Missing env vars",
-      hasUrl: !!url,
-      hasKey: !!key,
-    });
+    return res.status(500).json({ error: "Server configuration error" });
   }
 
   try {
@@ -36,11 +32,13 @@ export default async function handler(req, res) {
     }
 
     if (error) {
-      return res.status(500).json({ error: "Supabase error", details: error.message });
+      console.error("Supabase error:", error);
+      return res.status(500).json({ error: "Failed to retrieve session data" });
     }
 
     return res.status(200).json({ attemptsUsed: data.attempts_used });
   } catch (err) {
-    return res.status(500).json({ error: "Caught error", details: err.message });
+    console.error("Unexpected error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
