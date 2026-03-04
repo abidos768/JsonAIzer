@@ -1,14 +1,37 @@
 import { createClient } from "@supabase/supabase-js";
 
+const MAX_SESSION_ID_LENGTH = 64;
+
+function isValidSessionId(id) {
+  if (typeof id !== "string") return false;
+  if (id.length === 0 || id.length > MAX_SESSION_ID_LENGTH) return false;
+  return /^[a-zA-Z0-9-]+$/.test(id);
+}
+
+function setCorsHeaders(res) {
+  const allowedOrigins = process.env.ALLOWED_ORIGIN || "";
+  if (allowedOrigins) {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigins);
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
 export default async function handler(req, res) {
+  setCorsHeaders(res);
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   const { sessionId } = req.query;
 
-  if (!sessionId || typeof sessionId !== "string") {
-    return res.status(400).json({ error: "Missing sessionId query parameter" });
+  if (!isValidSessionId(sessionId)) {
+    return res.status(400).json({ error: "Missing or invalid sessionId" });
   }
 
   const url = process.env.SUPABASE_URL;

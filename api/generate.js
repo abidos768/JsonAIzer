@@ -3,8 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 
 const MAX_ATTEMPTS = 3;
 const MAX_PROMPT_LENGTH = 4000;
+const MAX_SESSION_ID_LENGTH = 64;
 
-const DEFAULT_SYSTEM_MESSAGE =
+// Hardcoded server-side — never accept system instructions from the frontend
+const SYSTEM_MESSAGE =
   "You are a JSON generator. You MUST respond with ONLY raw valid JSON. " +
   "No markdown, no code fences, no explanation, no extra text. " +
   "Your entire response must be a single JSON object that starts with { and ends with }.";
@@ -17,6 +19,13 @@ function sanitizePrompt(raw) {
 
   if (cleaned.length === 0) return null;
   return cleaned;
+}
+
+function isValidSessionId(id) {
+  if (typeof id !== "string") return false;
+  if (id.length === 0 || id.length > MAX_SESSION_ID_LENGTH) return false;
+  // Only allow UUID-like strings (alphanumeric + hyphens)
+  return /^[a-zA-Z0-9-]+$/.test(id);
 }
 
 function validateAgainstSchema(data, schema) {
@@ -41,7 +50,22 @@ function validateAgainstSchema(data, schema) {
   return true;
 }
 
+function setCorsHeaders(res) {
+  const allowedOrigins = process.env.ALLOWED_ORIGIN || "";
+  if (allowedOrigins) {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigins);
+  }
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
 export default async function handler(req, res) {
+  setCorsHeaders(res);
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -57,13 +81,18 @@ export default async function handler(req, res) {
 
   const { prompt: rawPrompt, sessionId, mode, schema } = req.body || {};
 
-  if (!sessionId || typeof sessionId !== "string") {
+  if (!isValidSessionId(sessionId)) {
     return res.status(400).json({ error: "Missing or invalid sessionId" });
   }
 
   const prompt = sanitizePrompt(rawPrompt);
   if (!prompt) {
     return res.status(400).json({ error: "Invalid prompt." });
+  }
+
+  // Limit schema size to prevent abuse
+  if (schema && JSON.stringify(schema).length > 2000) {
+    return res.status(400).json({ error: "Schema too large." });
   }
 
   try {
@@ -111,11 +140,6 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Server configuration error" });
       }
 
-      const systemMessage =
-        typeof req.body.systemInstruction === "string" && req.body.systemInstruction.trim()
-          ? req.body.systemInstruction.trim()
-          : DEFAULT_SYSTEM_MESSAGE;
-
       const client = new OpenAI({
         apiKey: process.env.GLM_API_KEY,
         baseURL: "https://api.z.ai/api/paas/v4",
@@ -124,7 +148,7 @@ export default async function handler(req, res) {
       const completion = await client.chat.completions.create({
         model: "glm-4.5-air",
         messages: [
-          { role: "system", content: systemMessage },
+          { role: "system", content: SYSTEM_MESSAGE },
           { role: "user", content: prompt },
         ],
         temperature: 0.7,
