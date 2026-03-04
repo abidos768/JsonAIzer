@@ -5,6 +5,14 @@ import PromptInput from "./components/PromptInput";
 
 const MAX_ATTEMPTS = 3;
 const SESSION_STORAGE_KEY = "jsonfi_session_id";
+const VERBATIM_SCHEMA = {
+  type: "object",
+  properties: {
+    input: { type: "string" }
+  },
+  required: ["input"],
+  additionalProperties: false
+};
 
 function getSessionId() {
   const existing = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -73,7 +81,11 @@ export default function App() {
         },
         body: JSON.stringify({
           prompt: trimmedPrompt,
-          sessionId
+          sessionId,
+          mode: "verbatim",
+          systemInstruction:
+            'Return valid JSON only. Copy the user prompt exactly into key "input" with no paraphrasing.',
+          schema: VERBATIM_SCHEMA
         })
       });
 
@@ -114,25 +126,46 @@ export default function App() {
   return (
     <main className="app-shell">
       <div className="background-grid" />
+      <div className="crt-noise" />
       <section className="app-content">
         <header className="hero">
-          <p className="badge">AI JSON Generator</p>
+          <p className="badge">TERMINAL CORE / JSONFI</p>
           <h1>One-Shot Prompt to JSON</h1>
-          <p>
-            Submit one prompt and get schema-safe JSON back from the backend.
-          </p>
-          <AttemptsCounter attemptsUsed={attemptsUsed} />
         </header>
 
-        <div className="layout">
-          <PromptInput
-            prompt={prompt}
-            onPromptChange={setPrompt}
-            onSubmit={handleSubmit}
-            disabled={blocked}
-            loading={loading}
-          />
-          <JSONOutput output={output} />
+        <section className="terminal-frame">
+          <div className="menu-bar">
+            <span>File</span>
+            <span>Edit</span>
+            <span>Options</span>
+            <span>Buffers</span>
+            <span>Tools</span>
+            <span>Help</span>
+          </div>
+
+          <p className="overlay-text">THIS IS HOW YOUR EMAIL WILL FIND ME</p>
+
+          <div className="layout">
+            <PromptInput
+              prompt={prompt}
+              onPromptChange={setPrompt}
+              onSubmit={handleSubmit}
+              disabled={blocked}
+              loading={loading}
+            />
+            <JSONOutput output={output} />
+          </div>
+
+          <div className="status-bar">
+            <span>-UUU:---</span>
+            <span>F1</span>
+            <span>email.txt</span>
+            <span>All L1 (Text)</span>
+          </div>
+        </section>
+
+        <div className="counter-wrap">
+          <AttemptsCounter attemptsUsed={attemptsUsed} />
         </div>
 
         {loading ? <p className="status loading">Processing...</p> : null}
