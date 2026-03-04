@@ -5,8 +5,9 @@ const MAX_ATTEMPTS = 3;
 const MAX_PROMPT_LENGTH = 4000;
 
 const SYSTEM_MESSAGE =
-  "Output MUST be valid JSON with predefined schema only. " +
-  "Respond with a single JSON object. Do not include any text outside the JSON.";
+  "You are a JSON generator. You MUST respond with ONLY raw valid JSON. " +
+  "No markdown, no code fences, no explanation, no extra text. " +
+  "Your entire response must be a single JSON object that starts with { and ends with }.";
 
 function sanitizePrompt(raw) {
   if (typeof raw !== "string") return null;
@@ -104,9 +105,25 @@ export default async function handler(req, res) {
         .json({ error: "AI did not return a response. Please try again." });
     }
 
+    // Try to extract JSON — GLM may wrap it in ```json ... ```
+    let jsonString = rawOutput.trim();
+
+    // Strip markdown code fences if present
+    const fenceMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonString = fenceMatch[1].trim();
+    }
+
+    // Try to extract the JSON object if there's extra text around it
+    if (!jsonString.startsWith("{") && !jsonString.startsWith("[")) {
+      const objectMatch = jsonString.match(/(\{[\s\S]*\})/);
+      const arrayMatch = jsonString.match(/(\[[\s\S]*\])/);
+      jsonString = objectMatch?.[1] || arrayMatch?.[1] || jsonString;
+    }
+
     let parsedJson;
     try {
-      parsedJson = JSON.parse(rawOutput);
+      parsedJson = JSON.parse(jsonString);
     } catch {
       return res.status(502).json({
         error: "AI returned invalid JSON. Please try a different prompt.",
