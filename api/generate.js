@@ -83,7 +83,7 @@ export default async function handler(req, res) {
 
     const client = new OpenAI({
       apiKey: process.env.GLM_API_KEY,
-      baseURL: "https://open.bigmodel.cn/api/paas/v4",
+      baseURL: "https://api.z.ai/api/paas/v4",
     });
 
     const completion = await client.chat.completions.create({
