@@ -87,7 +87,7 @@ export default async function handler(req, res) {
     });
 
     const completion = await client.chat.completions.create({
-      model: "glm-4-flash",
+      model: "glm-4.5-air",
       messages: [
         { role: "system", content: SYSTEM_MESSAGE },
         { role: "user", content: prompt },
