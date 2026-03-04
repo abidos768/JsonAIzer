@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { supabase } from "./_lib/supabase.js";
+import { createClient } from "@supabase/supabase-js";
 
 const MAX_ATTEMPTS = 3;
 const MAX_PROMPT_LENGTH = 4000;
@@ -23,9 +23,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (!supabase) {
-    return res.status(500).json({ error: "Server configuration error" });
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    return res.status(500).json({ error: "Missing Supabase env vars" });
   }
+
+  if (!process.env.GLM_API_KEY) {
+    return res.status(500).json({ error: "Missing GLM_API_KEY env var" });
+  }
+
+  const supabase = createClient(url, key);
 
   const { prompt: rawPrompt, sessionId } = req.body || {};
 
@@ -139,6 +148,6 @@ export default async function handler(req, res) {
 
     return res
       .status(500)
-      .json({ error: "An unexpected error occurred. Please try again." });
+      .json({ error: "An unexpected error occurred. Please try again.", details: err.message });
   }
 }
