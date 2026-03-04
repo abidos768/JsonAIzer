@@ -1,8 +1,12 @@
-import { supabase } from "./_lib/supabase.js";
+const { supabase } = require("./_lib/supabase.js");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  if (!supabase) {
+    return res.status(500).json({ error: "Server configuration error" });
   }
 
   const { sessionId } = req.query;
@@ -19,7 +23,6 @@ export default async function handler(req, res) {
       .single();
 
     if (error && error.code === "PGRST116") {
-      // No row found — session hasn't been created yet
       return res.status(200).json({ attemptsUsed: 0 });
     }
 
@@ -33,4 +36,4 @@ export default async function handler(req, res) {
     console.error("Unexpected error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
-}
+};

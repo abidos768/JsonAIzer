@@ -1,5 +1,5 @@
-import OpenAI from "openai";
-import { supabase } from "./_lib/supabase.js";
+const OpenAI = require("openai");
+const { supabase } = require("./_lib/supabase.js");
 
 const MAX_ATTEMPTS = 3;
 const MAX_PROMPT_LENGTH = 4000;
@@ -11,23 +11,22 @@ const SYSTEM_MESSAGE =
 function sanitizePrompt(raw) {
   if (typeof raw !== "string") return null;
 
-  // Strip control characters (keep newlines and tabs for readability)
   let cleaned = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
-
-  // Trim and enforce length limit
   cleaned = cleaned.trim().slice(0, MAX_PROMPT_LENGTH);
 
   if (cleaned.length === 0) return null;
-
   return cleaned;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Parse body
+  if (!supabase) {
+    return res.status(500).json({ error: "Server configuration error" });
+  }
+
   const { prompt: rawPrompt, sessionId } = req.body || {};
 
   if (!sessionId || typeof sessionId !== "string") {
@@ -42,7 +41,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Look up or create session
     let { data: session, error: selectError } = await supabase
       .from("sessions")
       .select("attempts_used")
@@ -50,7 +48,6 @@ export default async function handler(req, res) {
       .single();
 
     if (selectError && selectError.code === "PGRST116") {
-      // Session doesn't exist — create it
       const { data: newSession, error: insertError } = await supabase
         .from("sessions")
         .insert({ session_id: sessionId, attempts_used: 0 })
@@ -59,20 +56,15 @@ export default async function handler(req, res) {
 
       if (insertError) {
         console.error("Supabase insert error:", insertError);
-        return res
-          .status(500)
-          .json({ error: "Failed to create session" });
+        return res.status(500).json({ error: "Failed to create session" });
       }
 
       session = newSession;
     } else if (selectError) {
       console.error("Supabase select error:", selectError);
-      return res
-        .status(500)
-        .json({ error: "Failed to retrieve session data" });
+      return res.status(500).json({ error: "Failed to retrieve session data" });
     }
 
-    // Enforce attempt limit
     if (session.attempts_used >= MAX_ATTEMPTS) {
       return res.status(429).json({
         error: "You have reached the 3-attempt limit for this session.",
@@ -80,7 +72,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Call ZhipuAI (GLM) via OpenAI-compatible SDK
     const client = new OpenAI({
       apiKey: process.env.GLM_API_KEY,
       baseURL: "https://open.bigmodel.cn/api/paas/v4",
@@ -104,7 +95,6 @@ export default async function handler(req, res) {
         .json({ error: "AI did not return a response. Please try again." });
     }
 
-    // Validate that the output is valid JSON
     let parsedJson;
     try {
       parsedJson = JSON.parse(rawOutput);
@@ -114,7 +104,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Increment attempts_used
     const newAttemptsUsed = session.attempts_used + 1;
 
     const { error: updateError } = await supabase
@@ -127,7 +116,6 @@ export default async function handler(req, res) {
 
     if (updateError) {
       console.error("Supabase update error:", updateError);
-      // Still return the result — the user shouldn't lose their generation
     }
 
     return res.status(200).json({
@@ -153,4 +141,4 @@ export default async function handler(req, res) {
       .status(500)
       .json({ error: "An unexpected error occurred. Please try again." });
   }
-}
+};
