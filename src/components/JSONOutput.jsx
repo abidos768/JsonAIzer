@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import CopyButton from "./CopyButton";
 
 function renderCollapsibleValue(key, value) {
@@ -21,7 +22,31 @@ function renderCollapsibleValue(key, value) {
   );
 }
 
-export default function JSONOutput({ output }) {
+export default function JSONOutput({ output, loading, onOutputChange }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [editError, setEditError] = useState("");
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraft(output);
+      setEditError("");
+    }
+  }, [isEditing, output]);
+
+  if (loading && !output) {
+    return (
+      <section className="card output-card">
+        <div className="output-header">
+          <h2>JSON Output</h2>
+        </div>
+        <div className="skeleton-block" />
+        <div className="skeleton-block short" />
+        <div className="skeleton-block" />
+      </section>
+    );
+  }
+
   if (!output) {
     return (
       <section className="card output-card empty">
@@ -35,21 +60,75 @@ export default function JSONOutput({ output }) {
   const topLevelObject =
     parsed && typeof parsed === "object" && !Array.isArray(parsed);
 
+  const handleSave = () => {
+    try {
+      const normalized = JSON.stringify(JSON.parse(draft), null, 2);
+      onOutputChange(normalized);
+      setIsEditing(false);
+      setEditError("");
+    } catch (_error) {
+      setEditError("Invalid JSON. Fix formatting before saving.");
+    }
+  };
+
   return (
     <section className="card output-card fade-in">
       <div className="output-header">
         <h2>JSON Output</h2>
-        <CopyButton text={output} />
-      </div>
-
-      {topLevelObject ? (
-        <div className="json-collapsible">
-          {Object.entries(parsed).map(([key, value]) =>
-            renderCollapsibleValue(key, value)
+        <div className="output-actions">
+          <CopyButton text={isEditing ? draft : output} />
+          {isEditing ? (
+            <>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => {
+                  setDraft(output);
+                  setEditError("");
+                  setIsEditing(false);
+                }}
+              >
+                Cancel
+              </button>
+              <button type="button" className="generate-btn" onClick={handleSave}>
+                Save
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit
+            </button>
           )}
         </div>
+      </div>
+
+      {isEditing ? (
+        <>
+          <textarea
+            className="json-editor"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            rows={16}
+            spellCheck={false}
+          />
+          {editError ? <p className="status error inline">{editError}</p> : null}
+        </>
       ) : (
-        <pre>{output}</pre>
+        <>
+          {topLevelObject ? (
+            <div className="json-collapsible">
+              {Object.entries(parsed).map(([key, value]) =>
+                renderCollapsibleValue(key, value)
+              )}
+            </div>
+          ) : (
+            <pre>{output}</pre>
+          )}
+        </>
       )}
     </section>
   );

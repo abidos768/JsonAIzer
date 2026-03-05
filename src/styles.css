@@ -126,6 +126,7 @@ body {
 button {
   border: none;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .generate-btn,
@@ -153,6 +154,25 @@ button {
 
 .copy-btn.copied {
   background: linear-gradient(120deg, var(--accent-2), #99ffd9);
+}
+
+.copy-btn.failed {
+  background: linear-gradient(120deg, #ff8da7, #ffc2d0);
+}
+
+.ghost-btn {
+  color: var(--text);
+  background: rgba(118, 186, 255, 0.14);
+  border: 1px solid rgba(118, 186, 255, 0.35);
+  border-radius: 12px;
+  font-weight: 600;
+  padding: 11px 14px;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.ghost-btn:hover {
+  background: rgba(118, 186, 255, 0.22);
+  border-color: rgba(118, 186, 255, 0.5);
 }
 
 .attempts-counter {
@@ -209,6 +229,13 @@ button {
   margin-bottom: 12px;
 }
 
+.output-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .json-collapsible {
   display: grid;
   gap: 10px;
@@ -255,6 +282,61 @@ button {
   color: var(--danger);
 }
 
+.status.success {
+  color: var(--accent-2);
+}
+
+.status.inline {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.prompt-helper {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.json-editor {
+  width: 100%;
+  border: 1px solid rgba(116, 187, 255, 0.35);
+  border-radius: 12px;
+  background: rgba(11, 23, 42, 0.75);
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  padding: 12px;
+  font-family: "JetBrains Mono", monospace;
+  resize: vertical;
+}
+
+.json-editor:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(57, 211, 255, 0.25);
+}
+
+.skeleton-block {
+  height: 90px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(50, 90, 131, 0.22),
+    rgba(120, 177, 230, 0.24),
+    rgba(50, 90, 131, 0.22)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.25s linear infinite;
+  margin-bottom: 10px;
+}
+
+.skeleton-block.short {
+  height: 48px;
+}
+
 .fade-in {
   animation: fadeInUp 280ms ease;
 }
@@ -270,6 +352,15 @@ button {
   }
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 @media (max-width: 920px) {
   .layout {
     grid-template-columns: 1fr;
@@ -277,5 +368,31 @@ button {
 
   .app-content {
     padding-top: 32px;
+  }
+
+  .output-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .output-actions {
+    width: 100%;
+  }
+
+  .generate-btn,
+  .copy-btn,
+  .ghost-btn {
+    width: 100%;
+  }
+
+  .input-actions {
+    position: sticky;
+    bottom: 0;
+    padding-top: 10px;
+    background: linear-gradient(
+      180deg,
+      rgba(15, 23, 38, 0.02),
+      rgba(15, 23, 38, 0.9) 55%
+    );
   }
 }

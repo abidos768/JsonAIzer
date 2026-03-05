@@ -27,6 +27,7 @@ export default function App() {
   const [attemptsUsed, setAttemptsUsed] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const blocked = useMemo(() => attemptsUsed >= MAX_ATTEMPTS, [attemptsUsed]);
 
@@ -51,7 +52,7 @@ export default function App() {
 
   const handleSubmit = async () => {
     setError("");
-    setOutput("");
+    setSuccess("");
 
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) {
@@ -104,6 +105,7 @@ export default function App() {
 
       const normalized = JSON.stringify(JSON.parse(jsonText), null, 2);
       setOutput(normalized);
+      setSuccess("JSON generated. You can copy or edit it.");
     } catch (_err) {
       setError("Network error. Please check your connection and retry.");
     } finally {
@@ -132,10 +134,27 @@ export default function App() {
             disabled={blocked}
             loading={loading}
           />
-          <JSONOutput output={output} />
+          <JSONOutput
+            output={output}
+            loading={loading}
+            onOutputChange={(nextOutput) => {
+              setOutput(nextOutput);
+              setSuccess("JSON updated.");
+              setError("");
+            }}
+          />
         </div>
 
-        {loading ? <p className="status loading">Processing...</p> : null}
+        {loading ? (
+          <p className="status loading" role="status">
+            Generating JSON...
+          </p>
+        ) : null}
+        {success ? (
+          <p className="status success" role="status">
+            {success}
+          </p>
+        ) : null}
         {error ? <p className="status error">{error}</p> : null}
       </section>
     </main>

@@ -2,22 +2,29 @@ import { useState } from "react";
 
 export default function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const handleCopy = async () => {
     if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    try {
+      await navigator.clipboard.writeText(text);
+      setFailed(false);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch (_error) {
+      setFailed(true);
+      setTimeout(() => setFailed(false), 1600);
+    }
   };
 
   return (
     <button
       type="button"
-      className={`copy-btn ${copied ? "copied" : ""}`}
+      className={`copy-btn ${copied ? "copied" : ""} ${failed ? "failed" : ""}`}
       onClick={handleCopy}
       disabled={!text}
     >
-      {copied ? "Copied" : "Copy JSON"}
+      {copied ? "Copied" : failed ? "Copy failed" : "Copy JSON"}
     </button>
   );
 }
