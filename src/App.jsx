@@ -28,6 +28,11 @@ export default function App() {
   const accessToken = session?.access_token;
 
   useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setAuthLoading(false);
@@ -135,6 +140,24 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  if (!supabase) {
+    return (
+      <main className="app-shell">
+        <div className="background-grid" />
+        <section className="app-content">
+          <header className="hero">
+            <p className="badge">AI JSON Generator</p>
+            <h1>Configuration Error</h1>
+            <p className="status error">
+              Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.
+              Check your .env file.
+            </p>
+          </header>
+        </section>
+      </main>
+    );
+  }
 
   if (authLoading) {
     return (
