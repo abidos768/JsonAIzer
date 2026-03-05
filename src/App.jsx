@@ -1,19 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "./lib/supabase";
+import Auth from "./components/Auth";
 import AttemptsCounter from "./components/AttemptsCounter";
 import JSONOutput from "./components/JSONOutput";
 import PromptInput from "./components/PromptInput";
 
 const MAX_ATTEMPTS = 3;
-const SESSION_STORAGE_KEY = "jsonfi_session_id";
-
-function getSessionId() {
-  const existing = sessionStorage.getItem(SESSION_STORAGE_KEY);
-  if (existing) return existing;
-
-  const created = crypto.randomUUID();
-  sessionStorage.setItem(SESSION_STORAGE_KEY, created);
-  return created;
-}
 
 function formatApiError(errorData, fallbackMessage) {
   if (!errorData || typeof errorData !== "object") return fallbackMessage;
@@ -21,7 +13,9 @@ function formatApiError(errorData, fallbackMessage) {
 }
 
 export default function App() {
-  const [sessionId] = useState(() => getSessionId());
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [prompt, setPrompt] = useState("");
   const [output, setOutput] = useState("");
   const [attemptsUsed, setAttemptsUsed] = useState(0);
@@ -30,13 +24,32 @@ export default function App() {
   const [success, setSuccess] = useState("");
 
   const blocked = useMemo(() => attemptsUsed >= MAX_ATTEMPTS, [attemptsUsed]);
+  const user = session?.user;
+  const accessToken = session?.access_token;
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!accessToken) return;
+
     async function loadAttempts() {
       try {
-        const response = await fetch(
-          `/api/attempts?sessionId=${encodeURIComponent(sessionId)}`
-        );
+        const response = await fetch("/api/attempts", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
         if (!response.ok) return;
         const data = await response.json();
         if (typeof data.attemptsUsed === "number") {
@@ -48,7 +61,17 @@ export default function App() {
     }
 
     loadAttempts();
-  }, [sessionId]);
+  }, [accessToken]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setAttemptsUsed(0);
+    setOutput("");
+    setPrompt("");
+    setError("");
+    setSuccess("");
+  };
 
   const handleSubmit = async () => {
     setError("");
@@ -70,12 +93,12 @@ export default function App() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           prompt: trimmedPrompt,
-          sessionId
-        })
+        }),
       });
 
       const data = await response.json();
@@ -113,12 +136,32 @@ export default function App() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <main className="app-shell">
+        <div className="background-grid" />
+        <section className="app-content">
+          <p className="status loading" role="status">Loading...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <main className="app-shell">
       <div className="background-grid" />
       <section className="app-content">
         <header className="hero">
-          <p className="badge">AI JSON Generator</p>
+          <div className="hero-top-row">
+            <p className="badge">AI JSON Generator</p>
+            <button className="ghost-btn logout-btn" onClick={handleLogout}>
+              Log out
+            </button>
+          </div>
           <h1>One-Shot Prompt to JSON</h1>
           <p>
             Submit one prompt and get schema-safe JSON back from the backend.

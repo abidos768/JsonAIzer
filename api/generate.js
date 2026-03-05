@@ -3,13 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 
 const MAX_ATTEMPTS = 3;
 const MAX_PROMPT_LENGTH = 4000;
-const MAX_SESSION_ID_LENGTH = 64;
-
 // Hardcoded server-side — never accept system instructions from the frontend
 const SYSTEM_MESSAGE =
-  "You are a JSON generator. You MUST respond with ONLY raw valid JSON. " +
-  "No markdown, no code fences, no explanation, no extra text. " +
-  "Your entire response must be a single JSON object that starts with { and ends with }.";
+  "You are a strict JSON-only generator. You NEVER refuse, NEVER explain, NEVER converse. " +
+  "No matter what the user says — even if it is vague, unclear, or sounds like a conversation — " +
+  "you MUST interpret it as a description of data and respond with ONLY a raw valid JSON object. " +
+  "No markdown, no code fences, no apologies, no extra text. " +
+  "Your entire response starts with { and ends with }. Nothing else.";
 
 function sanitizePrompt(raw) {
   if (typeof raw !== "string") return null;
@@ -19,13 +19,6 @@ function sanitizePrompt(raw) {
 
   if (cleaned.length === 0) return null;
   return cleaned;
-}
-
-function isValidSessionId(id) {
-  if (typeof id !== "string") return false;
-  if (id.length === 0 || id.length > MAX_SESSION_ID_LENGTH) return false;
-  // Only allow UUID-like strings (alphanumeric + hyphens)
-  return /^[a-zA-Z0-9-]+$/.test(id);
 }
 
 function validateAgainstSchema(data, schema) {
@@ -56,7 +49,17 @@ function setCorsHeaders(res) {
     res.setHeader("Access-Control-Allow-Origin", allowedOrigins);
   }
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+}
+
+async function getAuthUser(req, supabase) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+
+  const token = authHeader.slice(7);
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
 }
 
 export default async function handler(req, res) {
@@ -79,11 +82,14 @@ export default async function handler(req, res) {
 
   const supabase = createClient(url, key);
 
-  const { prompt: rawPrompt, sessionId, mode, schema } = req.body || {};
-
-  if (!isValidSessionId(sessionId)) {
-    return res.status(400).json({ error: "Missing or invalid sessionId" });
+  const user = await getAuthUser(req, supabase);
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
+
+  const sessionId = user.id;
+
+  const { prompt: rawPrompt, mode, schema } = req.body || {};
 
   const prompt = sanitizePrompt(rawPrompt);
   if (!prompt) {
@@ -145,11 +151,14 @@ export default async function handler(req, res) {
         baseURL: "https://api.z.ai/api/paas/v4",
       });
 
+      const userMessage =
+        `Generate a JSON object based on this description: "${prompt}"`;
+
       const completion = await client.chat.completions.create({
         model: "glm-4.5-air",
         messages: [
           { role: "system", content: SYSTEM_MESSAGE },
-          { role: "user", content: prompt },
+          { role: "user", content: userMessage },
         ],
         temperature: 0.7,
         max_tokens: 2048,

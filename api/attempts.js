@@ -1,20 +1,22 @@
 import { createClient } from "@supabase/supabase-js";
 
-const MAX_SESSION_ID_LENGTH = 64;
-
-function isValidSessionId(id) {
-  if (typeof id !== "string") return false;
-  if (id.length === 0 || id.length > MAX_SESSION_ID_LENGTH) return false;
-  return /^[a-zA-Z0-9-]+$/.test(id);
-}
-
 function setCorsHeaders(res) {
   const allowedOrigins = process.env.ALLOWED_ORIGIN || "";
   if (allowedOrigins) {
     res.setHeader("Access-Control-Allow-Origin", allowedOrigins);
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+}
+
+async function getAuthUser(req, supabase) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+
+  const token = authHeader.slice(7);
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
 }
 
 export default async function handler(req, res) {
@@ -28,12 +30,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { sessionId } = req.query;
-
-  if (!isValidSessionId(sessionId)) {
-    return res.status(400).json({ error: "Missing or invalid sessionId" });
-  }
-
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -43,6 +39,13 @@ export default async function handler(req, res) {
 
   try {
     const supabase = createClient(url, key);
+
+    const user = await getAuthUser(req, supabase);
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const sessionId = user.id;
 
     const { data, error } = await supabase
       .from("sessions")
