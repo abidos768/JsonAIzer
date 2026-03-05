@@ -77,7 +77,10 @@ export default async function handler(req, res) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    return res.status(500).json({ error: "Server configuration error" });
+    return res.status(500).json({
+      error: "Server configuration error",
+      detail: !url ? "Missing SUPABASE_URL" : "Missing SUPABASE_SERVICE_ROLE_KEY",
+    });
   }
 
   const supabase = createClient(url, key);
@@ -143,7 +146,10 @@ export default async function handler(req, res) {
     } else {
       // AI mode: call GLM
       if (!process.env.GLM_API_KEY) {
-        return res.status(500).json({ error: "Server configuration error" });
+        return res.status(500).json({
+          error: "Server configuration error",
+          detail: "Missing GLM_API_KEY",
+        });
       }
 
       const client = new OpenAI({

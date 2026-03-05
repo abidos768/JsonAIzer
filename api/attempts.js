@@ -34,7 +34,10 @@ export default async function handler(req, res) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    return res.status(500).json({ error: "Server configuration error" });
+    return res.status(500).json({
+      error: "Server configuration error",
+      detail: !url ? "Missing SUPABASE_URL" : "Missing SUPABASE_SERVICE_ROLE_KEY",
+    });
   }
 
   try {
